@@ -24,7 +24,9 @@ PLANS = {
 }
 PRICE_IDS = {p: E(f"STRIPE_PRICE_{p.upper()}") for p in ("starter", "pro", "unlimited")}
 
-engine = create_engine((E("DATABASE_URL") or "sqlite:///local.db").replace("postgres://", "postgresql://", 1))
+url = E("DATABASE_URL") or "sqlite:///local.db"
+url = url.replace("postgres://", "postgresql://", 1).replace("postgresql://", "postgresql+psycopg2://", 1)
+engine = create_engine(url)
 Session = sessionmaker(engine)
 Base = declarative_base()
 
