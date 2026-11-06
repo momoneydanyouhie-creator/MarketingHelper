@@ -45,7 +45,7 @@ Base.metadata.create_all(engine)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=E("SECRET_KEY", "dev-only"), max_age=60 * 60 * 24 * 30)
-tpl = Jinja2Templates(directory="templates")
+tpl = Jinja2Templates(directory="")
 
 def hash_pw(pw, salt=None):
     salt = salt or secrets.token_hex(8)
