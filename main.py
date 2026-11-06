@@ -157,9 +157,16 @@ def checkout(request: Request, plan: str):
         if not u or plan not in PRICE_IDS or not PRICE_IDS[plan]:
             return RedirectResponse("/", 303)
         args = {"customer": u.customer} if u.customer else {"customer_email": u.email}
-        s = stripe.checkout.Session.create(mode="subscription", line_items=[{"price": PRICE_IDS[plan], "quantity": 1}],
-            client_reference_id=str(u.id), metadata={"plan": plan},
-            success_url=f"{BASE_URL}/generate", cancel_url=f"{BASE_URL}/", **args)
+        s = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": PRICE_IDS[plan], "quantity": 1}],
+            client_reference_id=str(u.id),
+            metadata={"plan": plan},
+            managed_payments={"enabled": False},  # skip Managed Payments (no product tax code needed)
+            success_url=f"{BASE_URL}/generate",
+            cancel_url=f"{BASE_URL}/",
+            **args,
+        )
         return RedirectResponse(s.url, 303)
 
 @app.post("/portal")
