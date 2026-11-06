@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block body %}
+<h2>About TitlePen</h2>
+<div class="sheet" style="max-width:720px">
+<h3>Hi, I'm Peyton Moore, and I built TitlePen.</h3>
+<p>My mom has worked in title for a long time, and I've watched her stress day and night over files. I wanted to do something about that.</p>
+<p>Marketing is one more thing on the pile for people in title. Newsletters, agent emails, social posts, and flyers all take time that title professionals don't have. TitlePen takes that off your plate: describe what you need, get a draft in minutes, edit it, and send it.</p>
+<p>I wanted it to be cheap and reliable, so a small title company or a solo marketer can afford it and count on it. I've dedicated myself to making other people's lives easier, and this is where I'm starting.</p>
+<p>You'll also find three AI assistants, Maya, Jordan, and Sam, in the chat button at the bottom right. They're AI, not people, and they're there to help you get unstuck.</p>
+<p>{% if user %}<a class="btn" href="/generate">Open the generator</a>{% else %}<a class="btn" href="/#join">Start free: 2 generations on me</a>{% endif %}</p>
+</div>{% endblock %}
