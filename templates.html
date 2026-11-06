@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block body %}
+<h2>Templates</h2><p class="muted">Pick one, edit the text in place, then copy or download it. Replace the [bracketed] placeholders with your details.</p>
+<div class="grid">{% for t in templates %}<div class="sheet"><h3>{{ t.title }}</h3><p class="muted">{{ t.kind }}</p>
+<button class="btn alt" type="button" data-i="{{ loop.index0 }}">Open and edit</button></div>{% endfor %}</div>
+<h3 id="etitle" style="margin-top:28px" hidden></h3>
+<div class="doc" id="editor" contenteditable="true" hidden aria-label="Template editor"></div>
+<p id="tools" hidden><button class="btn alt" id="copy" type="button">Copy</button> <button class="btn alt" id="dl" type="button">Download .html</button></p>
+<script>
+const T={{ templates|tojson }},$=id=>document.getElementById(id);
+document.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const t=T[b.dataset.i];
+  $("etitle").textContent=t.title;$("editor").innerHTML=t.html;
+  ["etitle","editor","tools"].forEach(i=>$(i).hidden=false);$("editor").focus();});
+$("copy").onclick=async()=>{await navigator.clipboard.writeText($("editor").innerText);$("copy").textContent="Copied";setTimeout(()=>$("copy").textContent="Copy",1500)};
+$("dl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["<!doctype html><meta charset=utf-8>"+$("editor").innerHTML],{type:"text/html"}));a.download="template.html";a.click()};
+</script>{% endblock %}
