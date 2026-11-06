@@ -128,13 +128,15 @@ Never promise specific legal outcomes, rates, or gifts/referral incentives to re
 (RESPA/state rules). Use [bracketed placeholders] for company names, contact details, and local facts.
 Output clean, ready-to-edit HTML (h2/h3/p/ul/strong only, no html/head/body tags) for the requested piece.
 You ONLY handle this work. For anything else reply exactly: OFF_TOPIC"""
+def text_of(r):
+    return "".join(b.text for b in r.content if b.type == "text").strip()
 
 def on_topic(text):
-    r = ai.messages.create(model=CHECK_MODEL, max_tokens=5, messages=[{"role": "user", "content":
+    r = ai.messages.create(model=CHECK_MODEL, max_tokens=300, messages=[{"role": "user", "content":
         "Reply ALLOW only if this asks for a newsletter, email, social post, flyer, or other marketing material "
         "for a title insurance or title/escrow company, or for title insurance content for that purpose. "
         "Otherwise reply DENY. One word.\n\nRequest: " + text[:2000]}])
-    return r.content[0].text.strip().upper().startswith("ALLOW")
+    return text_of(r).upper().startswith("ALLOW")
 
 @app.post("/api/generate")
 async def api_generate(request: Request):
@@ -149,9 +151,9 @@ async def api_generate(request: Request):
             return JSONResponse({"error": "You're out of generations. Upgrade your plan to keep going.", "upgrade": True}, 402)
         if not prompt or not on_topic(f"{kind}: {prompt}"):
             return JSONResponse({"error": "This tool only writes title insurance newsletters and marketing materials. Try describing the piece you need."}, 400)
-        r = ai.messages.create(model=MODEL, max_tokens=2000, system=SYSTEM,
+        r = ai.messages.create(model=MODEL, max_tokens=4000, system=SYSTEM,
                                messages=[{"role": "user", "content": f"Format: {kind}\n\nRequest: {prompt}"}])
-        out = r.content[0].text.strip()
+        out = text_of(r)
         if out == "OFF_TOPIC":
             return JSONResponse({"error": "This tool only writes title insurance newsletters and marketing materials."}, 400)
         spend(u); db.commit()
