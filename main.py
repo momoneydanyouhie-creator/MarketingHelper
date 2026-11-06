@@ -12,7 +12,6 @@ E = os.environ.get
 stripe.api_key = E("STRIPE_SECRET_KEY")
 ai = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
 MODEL = E("MODEL", "claude-sonnet-5-5")
-CHECK_MODEL = E("CHECK_MODEL", "claude-haiku-5-5")
 BASE_URL = E("BASE_URL", "http://localhost:8000")
 
 # Display prices are labels only; real prices live in Stripe.
@@ -121,22 +120,15 @@ def templates_page(request: Request):
     with Session() as db:
         return page(request, "templates.html", current(request, db))
 
-SYSTEM = """You write newsletters and marketing materials for title insurance and title/escrow companies:
-newsletters, emails to agents and lenders, social posts, flyers, postcards, and website copy.
-Be accurate about how title insurance works (title search, owner's vs lender's policy, closing, escrow).
-Never promise specific legal outcomes, rates, or gifts/referral incentives to real estate or lending professionals
-(RESPA/state rules). Use [bracketed placeholders] for company names, contact details, and local facts.
+SYSTEM = """You are a writing assistant that creates newsletters, emails, social posts, flyers, postcards, website copy, and other marketing materials.
+You are especially knowledgeable about title insurance, escrow, and real estate closings (title search, owner's vs lender's policy, closing).
+When writing for title or real estate professionals, never promise specific legal outcomes, rates, or gifts/referral incentives (RESPA/state rules).
+Use [bracketed placeholders] for company names, contact details, and local facts.
 Output clean, ready-to-edit HTML (h2/h3/p/ul/strong only, no html/head/body tags) for the requested piece.
-You ONLY handle this work. For anything else reply exactly: OFF_TOPIC"""
+Help with whatever writing or marketing request the user asks for."""
+
 def text_of(r):
     return "".join(b.text for b in r.content if b.type == "text").strip()
-
-def on_topic(text):
-    r = ai.messages.create(model=CHECK_MODEL, max_tokens=300, messages=[{"role": "user", "content":
-        "Reply ALLOW only if this asks for a newsletter, email, social post, flyer, or other marketing material "
-        "for a title insurance or title/escrow company, or for title insurance content for that purpose. "
-        "Otherwise reply DENY. One word.\n\nRequest: " + text[:2000]}])
-    return text_of(r).upper().startswith("ALLOW")
 
 @app.post("/api/generate")
 async def api_generate(request: Request):
@@ -149,13 +141,11 @@ async def api_generate(request: Request):
             return JSONResponse({"error": "Please log in."}, 401)
         if remaining(u) <= 0:
             return JSONResponse({"error": "You're out of generations. Upgrade your plan to keep going.", "upgrade": True}, 402)
-        if not prompt or not on_topic(f"{kind}: {prompt}"):
-            return JSONResponse({"error": "This tool only writes title insurance newsletters and marketing materials. Try describing the piece you need."}, 400)
+        if not prompt:
+            return JSONResponse({"error": "Type what you want written first."}, 400)
         r = ai.messages.create(model=MODEL, max_tokens=4000, system=SYSTEM,
                                messages=[{"role": "user", "content": f"Format: {kind}\n\nRequest: {prompt}"}])
         out = text_of(r)
-        if out == "OFF_TOPIC":
-            return JSONResponse({"error": "This tool only writes title insurance newsletters and marketing materials."}, 400)
         spend(u); db.commit()
         return {"html": out, "left": None if u.plan == "unlimited" else remaining(u)}
 
