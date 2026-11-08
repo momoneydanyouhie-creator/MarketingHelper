@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block body %}
+<h1>Title company newsletters and marketing, written in minutes.</h1>
+<p class="muted" style="max-width:56ch">Describe what you need, such as a monthly update for agents or a wire-fraud warning for buyers, and TitlePen drafts it for you to edit and send. It is built with title and real estate in mind.</p>
+<div class="plans" id="plans">
+{% for key, p in plans.items() if key not in ("vip", "ceo") %}<div class="sheet plan"><h3>{{ p.name }}</h3><div class="price">{{ p.price }}{% if key != "free" %}<span class="muted" style="font:400 1rem 'IBM Plex Sans'"> {{ p.period }}</span>{% endif %}</div><p class="muted">{{ p.note }}</p>
+{% if user and key != "free" %}<form method="post" action="/checkout/{{ key }}"><button class="btn" type="submit">{{ "Current plan" if user.plan == key else "Choose " ~ p.name }}</button></form>
+{% elif not user and key == "free" %}<a class="btn" href="#join">Start free</a>{% endif %}</div>{% endfor %}
+</div>
+{% if not user %}<div class="sheet" id="join" style="max-width:420px">
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<h2>Create your account</h2>
+<form method="post" action="/signup"><label for="e1">Email</label><input id="e1" name="email" type="email" required>
+<label for="p1">Password (8+ characters)</label><input id="p1" name="password" type="password" minlength="8" required><p><button class="btn" type="submit">Create account</button></p></form>
+<h3 style="margin-top:20px">Already have one?</h3>
+<form method="post" action="/login"><label for="e2">Email</label><input id="e2" name="email" type="email" required>
+<label for="p2">Password</label><input id="p2" name="password" type="password" required><p><button class="btn alt" type="submit">Log in</button></p></form></div>{% endif %}
+{% endblock %}
