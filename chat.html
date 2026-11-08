@@ -1,0 +1,88 @@
+{% extends "base.html" %}{% block body %}
+<h2>Community chat</h2>
+<p class="muted" style="max-width:62ch">Share what worked: which templates and prompts got results, plus screenshots of drafts you liked. Members only.</p>
+<p class="sheet" style="padding:12px 16px;max-width:62ch;margin:0 0 18px"><strong>Keep it clean.</strong> Never post client names, addresses, file numbers, or closing documents. Blur anything private in screenshots.</p>
+
+<div class="sheet" id="nickbox" style="max-width:420px" {% if nick %}hidden{% endif %}>
+<h3>Pick a chat name</h3><p class="muted">Other members see this instead of your email.</p>
+<label for="nick">Chat name</label><input id="nick" maxlength="20" autocomplete="off" placeholder="e.g. Dawn at Gulf Title">
+<p><button class="btn" id="nicksave" type="button">Join the chat</button></p><p class="err" id="nickerr" role="alert"></p></div>
+
+<div id="chatbox" {% if not nick %}hidden{% endif %}>
+<div class="doc cx-log" id="log" role="log" aria-live="polite" aria-label="Chat messages"><span class="muted">Loading…</span></div>
+<form id="cform" class="cx-form">
+<label class="sr" for="cbody">Message</label>
+<textarea id="cbody" rows="2" maxlength="500" placeholder="What worked for you?"></textarea>
+<div class="cx-row">
+<input id="cfile" type="file" accept="image/*" hidden>
+<button class="btn alt" id="cpick" type="button">Add picture</button>
+<span class="muted" id="cname"></span>
+<button class="btn" type="submit" id="csend" style="margin-left:auto">Send</button>
+</div>
+<p class="err" id="cerr" role="alert"></p>
+</form></div>
+
+<style>
+.cx-log{height:min(55vh,520px);overflow-y:auto;padding:12px;background:#fff}
+.cx-m{border-left:5px solid var(--line);background:#F6F8FB;padding:8px 12px;margin:0 0 10px;border-radius:3px;max-width:640px;overflow-wrap:anywhere}
+.cx-m.mine{border-left-color:var(--tape)}
+.cx-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:.9rem}
+.cx-h strong{color:var(--ink)}.cx-h time{color:#53627A;font-size:.8rem}
+.cx-b{margin:.25em 0;white-space:pre-wrap}
+.cx-m img{display:block;max-width:100%;max-height:320px;border-radius:3px;margin-top:6px;border:1px solid var(--line)}
+.cx-a{display:flex;gap:12px;margin-top:4px}
+.cx-a button{background:none;border:0;padding:0;color:#53627A;font:500 .8rem "IBM Plex Sans",sans-serif;text-decoration:underline;cursor:pointer}
+.cx-form{margin-top:12px}.cx-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+</style>
+
+<script>
+const $=id=>document.getElementById(id),ADMIN={{ is_admin|tojson }};
+let file=null,last="",sending=false;
+const post=(u,b)=>fetch(u,{method:"POST",headers:b&&!(b instanceof FormData)?{"Content-Type":"application/json"}:{},body:b instanceof FormData?b:(b?JSON.stringify(b):undefined)});
+$("nicksave")&&($("nicksave").onclick=async()=>{
+  const r=await post("/api/chat/nick",{nick:$("nick").value}),d=await r.json();
+  if(!r.ok){$("nickerr").textContent=d.error;return}
+  $("nickbox").hidden=true;$("chatbox").hidden=false;load();});
+$("cpick").onclick=()=>$("cfile").click();
+$("cfile").onchange=()=>{file=$("cfile").files[0]||null;$("cname").textContent=file?file.name:""};
+function shrink(f){return new Promise(res=>{
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(f.type))return res(f);
+  const im=new Image(),u=URL.createObjectURL(f);
+  im.onload=()=>{const s=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement("canvas");
+    c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    c.toBlob(b=>{URL.revokeObjectURL(u);res(b||f)},"image/jpeg",.82)};
+  im.onerror=()=>res(f);im.src=u;});}
+$("cform").onsubmit=async e=>{e.preventDefault();if(sending)return;
+  const text=$("cbody").value.trim();if(!text&&!file){$("cerr").textContent="Type a message or add a picture.";return}
+  sending=true;$("csend").disabled=true;$("cerr").textContent="";
+  try{const fd=new FormData();fd.append("body",text);
+    if(file){const b=await shrink(file);fd.append("image",b,"pic.jpg")}
+    const r=await post("/api/chat/send",fd);
+    if(!r.ok){const d=await r.json().catch(()=>({}));$("cerr").textContent=d.error||"Could not send. Try again.";}
+    else{$("cbody").value="";file=null;$("cfile").value="";$("cname").textContent="";await load(true)}
+  }catch(x){$("cerr").textContent="Could not send. Try again."}
+  sending=false;$("csend").disabled=false;};
+$("cbody").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("cform").requestSubmit()}});
+function render(ms){
+  const log=$("log"),near=log.scrollHeight-log.scrollTop-log.clientHeight<80;
+  log.textContent="";
+  if(!ms.length){log.innerHTML='<span class="muted">No messages yet. Be the first to share what worked.</span>';return}
+  ms.forEach(m=>{const d=document.createElement("div");d.className="cx-m"+(m.mine?" mine":"");
+    const h=document.createElement("div");h.className="cx-h";
+    const n=document.createElement("strong");n.textContent=m.nick+(m.owner?" (owner)":"");
+    const t=document.createElement("time");t.textContent=new Date(m.ts).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+    h.append(n,t);d.append(h);
+    if(m.body){const b=document.createElement("div");b.className="cx-b";b.textContent=m.body;d.append(b)}
+    if(m.img){const a=document.createElement("a");a.href="/chat/img/"+m.id;a.target="_blank";a.rel="noopener";
+      const i=document.createElement("img");i.src="/chat/img/"+m.id;i.loading="lazy";i.alt="Picture shared by "+m.nick;a.append(i);d.append(a)}
+    const x=document.createElement("div");x.className="cx-a";
+    if(m.canDelete){const b=document.createElement("button");b.type="button";b.textContent="Delete";b.onclick=async()=>{if(confirm("Delete this message?")){await post("/api/chat/delete/"+m.id);load(true)}};x.append(b)}
+    if(!m.mine){const b=document.createElement("button");b.type="button";b.textContent="Report";b.onclick=async()=>{await post("/api/chat/report/"+m.id);b.textContent="Reported";b.disabled=true};x.append(b)}
+    d.append(x);log.append(d)});
+  if(near||render.first!==true){log.scrollTop=log.scrollHeight}render.first=true;}
+async function load(force){
+  try{const r=await fetch("/api/chat/messages");if(r.status===401){location.href="/";return}
+    const d=await r.json(),sig=JSON.stringify(d.messages.map(m=>m.id));
+    if(force||sig!==last){last=sig;render(d.messages)}}catch(e){}}
+load();setInterval(()=>{if(!document.hidden&&!$("chatbox").hidden)load()},5000);
+</script>{% endblock %}
