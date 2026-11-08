@@ -1,0 +1,93 @@
+{% extends "base.html" %}{% block body %}
+<style>
+.ap{background:#06100A;color:#F2F2F2;border:1px solid #0E3A1A;border-top:4px solid #38C24A;border-radius:4px;padding:18px;margin:0 0 18px}
+.ap h3{color:#fff;margin-top:0}.ap .muted{color:#9DB3A3}
+.ap .btn{background:#38C24A;border-color:#38C24A;color:#04140A}.ap .btn:hover{background:#52DB63;border-color:#52DB63}
+.ap .btn.alt{background:transparent;color:#fff;border-color:#8AA391}.ap .btn.alt:hover{background:rgba(255,255,255,.1)}
+.ap .btn.sm{padding:5px 10px;font-size:.85rem}
+.ap a{color:#8DFF9D}
+.as{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.as div{background:#0D1A11;border:1px solid #1B3322;border-radius:4px;padding:12px}
+.as b{display:block;font:600 1.9rem Newsreader,serif;color:#fff}.as span{color:#9DB3A3;font-size:.85rem}
+.tw{overflow-x:auto}
+.at{width:100%;border-collapse:collapse;font-size:.9rem}
+.at th{text-align:left;color:#8DFF9D;font-weight:600;padding:8px;border-bottom:2px solid #0E3A1A;white-space:nowrap}
+.at td{padding:8px;border-bottom:1px solid #1B2A20;vertical-align:middle}
+.at select{width:auto;padding:4px 6px;font-size:.85rem}
+.at form{display:inline-flex;gap:6px;align-items:center;margin:0}
+.chip{display:inline-block;background:#1B2A20;border-radius:3px;padding:2px 8px;margin:2px 6px 2px 0;font-size:.85rem}
+.pl-ceo,.pl-vip{background:#C1121F;color:#fff}.pl-admin{background:#5BD11F;color:#06210A}
+.pl-starter,.pl-pro,.pl-unlimited{background:#1F6F43;color:#fff}
+.ap input[type=search]{max-width:420px}
+.flt{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.flt input,.flt select{width:auto}
+.stext{white-space:pre-wrap;overflow-wrap:anywhere;max-width:760px;line-height:1.55}
+.sc{margin-bottom:16px;max-width:820px}
+</style>
+<h2>Telemarketing desk</h2>
+{% if msg %}<p class="ok">{{ msg }}</p>{% endif %}{% if err %}<p class="err">{{ err }}</p>{% endif %}
+
+<div class="sheet sc">
+<h3>Your name for the scripts</h3>
+<p class="muted">Type your name once and every script below fills it in. It is saved in this browser only.</p>
+<label for="myname">Your name</label>
+<input id="myname" maxlength="60" autocomplete="name" placeholder="e.g. Haven Marasco" style="max-width:360px">
+</div>
+
+<div class="sheet sc">
+<h3>TitlePen in 30 seconds</h3>
+<p>TitlePen helps title and escrow companies write newsletters, agent and lender emails, social posts, flyers, and postcards. They describe what they need, get a draft in about a minute, edit it on the page, then copy or download it.</p>
+<ul>{% for k, p in plans.items() if k not in ("vip", "ceo", "admin") %}<li><strong>{{ p.name }}</strong>: {{ p.price }}{% if p.period %} {{ p.period }}{% endif %}, {{ p.note }}</li>{% endfor %}</ul>
+<p class="muted">The "Unlimited" plan is 150 generations a month, not infinite, so never promise unlimited. Plans can be changed or canceled anytime in Stripe's billing portal.</p>
+</div>
+
+<h3 style="margin-top:26px">Call scripts</h3>
+{% for s in scripts %}<div class="sheet sc"><h3>{{ s.title }}</h3><p class="muted">{{ s.when }}</p>
+<div class="doc stext" id="s{{ loop.index0 }}">{{ s.text }}</div>
+<p><button class="btn alt" type="button" data-c="{{ loop.index0 }}">Copy</button></p></div>{% endfor %}
+
+<div class="sheet sc">
+<h3>Call basics (not legal advice)</h3>
+<ul>
+<li>Check the National Do Not Call Registry, your state's list, and our own do-not-call list before dialing.</li>
+<li>Call only between 8 a.m. and 9 p.m. in the prospect's local time.</li>
+<li>Say your name and titlepen.com right away, and be honest about why you are calling.</li>
+<li>If someone says "don't call me again," thank them, end the call, and write their number down on the do-not-call list right then.</li>
+<li>Never promise results, savings, or that a draft is legally compliant.</li>
+<li>Telemarketing rules differ by state, so ask a lawyer to confirm the rules for the states you call.</li>
+</ul>
+</div>
+
+<div class="ap"><h3>Accounts</h3>
+<div class="as">
+<div><b>{{ stats.total }}</b><span>Total accounts</span></div>
+<div><b>{{ stats.free }}</b><span>Free accounts</span></div>
+<div><b>{{ stats.paying }}</b><span>Paying subscribers</span></div>
+</div>
+<form class="flt" method="get" action="/admin" style="margin-top:14px"><label class="sr" for="q">Search email</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Search email">
+<label class="sr" for="fp">Plan</label><select id="fp" name="plan"><option value="">All plans</option>{% for k, p in plans.items() %}<option value="{{ k }}" {{ "selected" if fplan == k }}>{{ p.name }}</option>{% endfor %}</select>
+<button class="btn sm" type="submit">Filter</button></form>
+<p class="muted">Showing {{ rows|length }}{% if shown > rows|length %} of {{ shown }}{% endif %} accounts, newest first. Changing a plan here gives that person the plan's generations. If they pay through Stripe, Stripe may change it back on the next billing event.</p>
+<div class="tw"><table class="at"><thead><tr><th>Email</th><th>Plan</th><th>Joined</th><th>Last login</th><th>Used</th><th>Change plan</th></tr></thead><tbody>
+{% for x in rows %}<tr>
+<td>{{ x.email }}</td><td><span class="chip pl-{{ x.plan }}">{{ plans[x.plan].name if x.plan in plans else x.plan }}</span></td>
+<td>{{ x.created|dt }}</td><td>{{ x.last_login|dt if x.last_login else "never" }}</td>
+<td>{{ x.used }}{% if x.limit %} / {{ x.limit }}{% else %} / ∞{% endif %}</td>
+<td>{% if x.protected %}<span class="muted">protected</span>{% else %}
+<form method="post" action="/admin/plan"><input type="hidden" name="user_id" value="{{ x.id }}"><label class="sr" for="p{{ x.id }}">Plan for {{ x.email }}</label>
+<select id="p{{ x.id }}" name="plan">{% for k in tele_plans %}<option value="{{ k }}" {{ "selected" if x.plan == k }}>{{ plans[k].name }}</option>{% endfor %}</select><button class="btn alt sm" type="submit">Set plan</button></form>
+{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No accounts match.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<script>
+const S={{ scripts|tojson }},$=id=>document.getElementById(id),KEY="tp_tele_name";
+let nm="";try{nm=localStorage.getItem(KEY)||""}catch(e){}
+function fill(t){return nm.trim()?t.split("[Your Name]").join(nm.trim()):t}
+function paint(){S.forEach((s,i)=>{$("s"+i).textContent=fill(s.text)})}
+$("myname").value=nm;
+$("myname").oninput=()=>{nm=$("myname").value;try{localStorage.setItem(KEY,nm)}catch(e){}paint()};
+document.querySelectorAll("[data-c]").forEach(b=>b.onclick=async()=>{const i=+b.dataset.c;
+  try{await navigator.clipboard.writeText(fill(S[i].text));b.textContent="Copied";setTimeout(()=>b.textContent="Copy",1500)}
+  catch(e){b.textContent="Select the text and copy by hand"}});
+paint();
+</script>{% endblock %}

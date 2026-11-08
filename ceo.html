@@ -1,0 +1,99 @@
+{% extends "base.html" %}{% block body %}
+<style>
+.cp{background:#0B0B0D;color:#F2F2F2;border:1px solid #3A0A10;border-top:4px solid #C1121F;border-radius:4px;padding:18px;margin:0 0 18px}
+.cp h3{color:#fff;margin-top:0}.cp .muted{color:#A9A9B3}
+.cp .btn{background:#C1121F;border-color:#C1121F;color:#fff}.cp .btn:hover{background:#E01E2D;border-color:#E01E2D}
+.cp .btn.alt{background:transparent;color:#fff;border-color:#8A8A94}.cp .btn.alt:hover{background:rgba(255,255,255,.1)}
+.cp .btn.sm{padding:5px 10px;font-size:.85rem}
+.cp a{color:#FF7B7B}
+.cs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.cs div{background:#16161A;border:1px solid #2A2A30;border-radius:4px;padding:12px}
+.cs b{display:block;font:600 1.9rem Newsreader,serif;color:#fff}.cs span{color:#A9A9B3;font-size:.85rem}
+.tw{overflow-x:auto}
+.ct{width:100%;border-collapse:collapse;font-size:.9rem}
+.ct th{text-align:left;color:#FF8A8A;font-weight:600;padding:8px;border-bottom:2px solid #3A0A10;white-space:nowrap}
+.ct td{padding:8px;border-bottom:1px solid #26262B;vertical-align:middle}
+.ct select{width:auto;padding:4px 6px;font-size:.85rem}
+.ct form{display:inline-flex;gap:6px;align-items:center;margin:0 6px 0 0}
+.chip{display:inline-block;background:#26262B;border-radius:3px;padding:2px 8px;margin:2px 6px 2px 0;font-size:.85rem}
+.pl-ceo,.pl-vip{background:#C1121F;color:#fff}.pl-admin{background:#5BD11F;color:#06210A}.pl-starter,.pl-pro,.pl-unlimited{background:#1F6F43;color:#fff}
+.cp input[type=text],.cp input[type=search],.cp input[type=password]{max-width:420px}
+.flt{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.flt input,.flt select{width:auto}
+</style>
+<h2>CEO control room</h2>
+{% if msg %}<p class="ok">{{ msg }}</p>{% endif %}{% if err %}<p class="err">{{ err }}</p>{% endif %}
+
+{% if locked %}
+<div class="cp" style="max-width:420px"><h3>Enter your PIN</h3>
+<form method="post" action="/ceo/unlock"><label for="pin">CEO PIN</label><input id="pin" name="pin" type="password" autocomplete="current-password" required>
+<p><button class="btn" type="submit">Unlock</button></p></form></div>
+{% else %}
+
+<div class="cp"><h3>Business at a glance</h3>
+<div class="cs">
+<div><b>{{ stats.total }}</b><span>Total accounts</span></div>
+<div><b>{{ stats.today }} / {{ stats.week }} / {{ stats.month }}</b><span>New: today / 7 days / 30 days</span></div>
+<div><b>{{ stats.paying }}</b><span>Paying subscribers</span></div>
+<div><b>${{ stats.mrr }}</b><span>Est. monthly revenue</span></div>
+<div><b>{{ stats.free }}</b><span>Free accounts</span></div>
+<div><b>{{ stats.paid_gens }}</b><span>Paid generations this month</span></div>
+<div><b>{{ stats.free_gens }}</b><span>Free generations used, all time</span></div>
+</div>
+<p style="margin-top:12px">{% for k, n in counts.items() %}<span class="chip pl-{{ k }}">{{ plans[k].name }}: {{ n }}</span>{% endfor %}</p>
+<p class="muted" style="margin-bottom:0">Revenue is an estimate from your list prices (Starter $29/mo, Pro $59 per 3 months, Unlimited $99/yr). Stripe has the exact numbers. "New" counts only accounts made since logging began.</p>
+<p style="margin-bottom:0"><a href="https://dashboard.stripe.com/payments" target="_blank" rel="noopener">Stripe payments</a> &nbsp; <a href="https://dashboard.render.com" target="_blank" rel="noopener">Render</a> &nbsp; <a href="https://console.anthropic.com" target="_blank" rel="noopener">Anthropic console</a></p>
+</div>
+
+<div class="cp"><h3>Accounts</h3>
+<form class="flt" method="get" action="/ceo"><label class="sr" for="q">Search email</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Search email">
+<label class="sr" for="fp">Plan</label><select id="fp" name="plan"><option value="">All plans</option>{% for k, p in plans.items() %}<option value="{{ k }}" {{ "selected" if fplan == k }}>{{ p.name }}</option>{% endfor %}</select>
+<button class="btn sm" type="submit">Filter</button> <a class="btn alt sm" href="/ceo/export.csv">Export CSV</a></form>
+<p class="muted">Showing {{ rows|length }}{% if shown > rows|length %} of {{ shown }}{% endif %} accounts, newest first.</p>
+<div class="tw"><table class="ct"><thead><tr><th>Email</th><th>Plan</th><th>Joined</th><th>Last login</th><th>Used</th><th>Stripe</th><th>Manage</th></tr></thead><tbody>
+{% for x in rows %}<tr>
+<td>{{ x.email }}</td><td><span class="chip pl-{{ x.plan }}">{{ plans[x.plan].name if x.plan in plans else x.plan }}</span></td>
+<td>{{ x.created|dt }}</td><td>{{ x.last_login|dt if x.last_login else "never" }}</td>
+<td>{{ x.used }}{% if x.limit %} / {{ x.limit }}{% else %} / ∞{% endif %}</td>
+<td>{% if x.customer %}<a href="https://dashboard.stripe.com/customers/{{ x.customer }}" target="_blank" rel="noopener">Open</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+<td>{% if x.special %}<span class="muted">protected</span>{% elif x.staff %}<span class="muted">Admin</span> <form method="post" action="/ceo/admin/remove"><input type="hidden" name="user_id" value="{{ x.id }}"><button class="btn alt sm" type="submit">Remove admin</button></form>{% else %}
+<form method="post" action="/ceo/plan"><input type="hidden" name="user_id" value="{{ x.id }}"><label class="sr" for="p{{ x.id }}">Plan for {{ x.email }}</label>
+<select id="p{{ x.id }}" name="plan">{% for k, p in plans.items() if k not in ("ceo", "admin") %}<option value="{{ k }}" {{ "selected" if x.plan == k }}>{{ p.name }}</option>{% endfor %}</select><button class="btn alt sm" type="submit">Set plan</button></form>
+<form method="post" action="/ceo/reset"><input type="hidden" name="user_id" value="{{ x.id }}"><button class="btn alt sm" type="submit">Reset usage</button></form>
+<form method="post" action="/ceo/delete" onsubmit="return confirm('Delete {{ x.email }} permanently?')"><input type="hidden" name="user_id" value="{{ x.id }}"><button class="btn alt sm" type="submit">Delete</button></form>
+<form method="post" action="/ceo/admin/add"><input type="hidden" name="user_id" value="{{ x.id }}"><button class="btn alt sm" type="submit">Make admin</button></form>
+{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">No accounts match.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="cp"><h3>Activity log</h3>
+<p class="muted">Signups, purchases, plan changes, cancellations, deletions, and your own actions. Newest first, last 100.</p>
+<div class="tw"><table class="ct"><thead><tr><th>When</th><th>Event</th><th>Account</th><th>Details</th></tr></thead><tbody>
+{% for e in events %}<tr><td style="white-space:nowrap">{{ e.ts|dt }}</td><td><span class="chip {{ 'pl-starter' if e.kind in ('purchase','plan_change') else '' }}">{{ e.kind|replace("_", " ") }}</span></td><td>{{ e.email }}</td><td>{{ e.detail }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nothing logged yet. New signups and purchases will show up here.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="cp"><h3>Admins (telemarketers)</h3>
+<p class="muted">Admins get free unlimited use, the Telemarketing tab, and can see account emails and change plans (Free, Starter, Pro, or Unlimited). They cannot touch CEO, VIP, or other Admin accounts, and they cannot make anyone an Admin. They need to sign up first, then add them here or press "Make admin" in the Accounts table.</p>
+<form method="post" action="/ceo/admin/add" class="flt"><label class="sr" for="ae">Email to make admin</label><input id="ae" type="email" name="email" placeholder="their@email.com" required>
+<button class="btn" type="submit">Make admin</button></form>
+<p>{% for e in admins %}<span class="chip pl-admin">{{ e }}</span>{% else %}<span class="muted">No admins yet.</span>{% endfor %}</p></div>
+
+<div class="cp"><h3>Site controls</h3>
+<form method="post" action="/ceo/banner"><label for="bn">Announcement banner (shown at the top of every page)</label>
+<input id="bn" type="text" name="text_" maxlength="300" placeholder="e.g. New templates added this week!" value="">
+<p><button class="btn" type="submit">Publish banner</button> <span class="muted">Leave empty and publish to clear it.</span></p></form>
+<hr style="border:0;border-top:1px solid #26262B;margin:14px 0">
+<form method="post" action="/ceo/maintenance"><p>Maintenance mode is <strong>{{ "ON" if maintenance else "OFF" }}</strong>. When on, generations pause for everyone except you.</p>
+<button class="btn alt" type="submit">{{ "Turn off maintenance" if maintenance else "Turn on maintenance" }}</button></form></div>
+
+<div class="cp"><h3>Reported chat messages</h3>
+<p class="muted">Messages hide automatically at 3 reports. Restore or delete them here.</p>
+{% for m in reported %}<div style="border-top:1px solid #26262B;padding:10px 0"><strong>{{ m.nick }}</strong> <span class="chip">{{ m.reports }} report{{ "" if m.reports == 1 else "s" }}</span>{% if m.img %}<span class="chip">has picture</span>{% endif %}
+<div style="white-space:pre-wrap;overflow-wrap:anywhere">{{ m.body }}</div>
+<form method="post" action="/ceo/chat/{{ m.id }}/restore" style="display:inline"><button class="btn alt sm" type="submit">Restore</button></form>
+<form method="post" action="/ceo/chat/{{ m.id }}/delete" style="display:inline"><button class="btn alt sm" type="submit">Delete</button></form></div>
+{% else %}<p class="muted">Nothing reported.</p>{% endfor %}</div>
+
+{% if not pin_set %}<p class="muted">Tip: set a <code>CEO_PIN</code> variable on Render to lock this page behind a PIN.</p>{% endif %}
+{% endif %}
+{% endblock %}
